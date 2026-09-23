@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>前厅排班助手</title>
+    <title>个人排班</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script>
         tailwind.config = {
@@ -32,34 +31,25 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
-            .card {
-                @apply bg-bgCard rounded-2xl p-5 shadow-md;
-            }
-            .btn {
-                @apply rounded-xl px-4 py-3 font-medium transition-all active:scale-[0.96] flex items-center justify-center gap-2;
-            }
+            .card { @apply bg-bgCard rounded-2xl p-5 shadow-md; }
+            .btn { @apply rounded-xl px-4 py-3 font-medium transition-all active:scale-[0.96] flex items-center justify-center gap-2; }
             .btn-primary { @apply bg-primary text-white; }
             .btn-gray { @apply bg-bgGray text-textMain; }
             .btn-danger { @apply bg-danger text-white; }
             .input { @apply w-full rounded-xl p-3 bg-bgGray outline-none border-0; }
             .page { @apply hidden; }
             .page.active { @apply block; }
-            /* 底部导航样式 */
-            .nav-item {
-                @apply flex flex-col items-center justify-center py-1 transition-all active:scale-95 text-textSub;
-            }
-            .nav-item.active {
-                @apply text-primary;
-            }
-            .todo-line-through {
-                @apply line-through text-textSub;
-            }
+            .nav-item { @apply flex flex-col items-center justify-center py-1 transition-all active:scale-95 text-textSub; }
+            .nav-item.active { @apply text-primary; }
+            .day-cell { @apply p-2 rounded-lg cursor-pointer; }
+            .day-cell-selected { @apply ring-2 ring-primary; }
+            .todo-line { @apply line-through text-textSub; }
         }
     </style>
 </head>
 <body class="bg-bgPage min-h-screen text-textMain pb-20">
     <div class="max-w-xl mx-auto p-4">
-        <h1 class="text-xl font-bold text-center my-6">前厅排班助手</h1>
+        <h1 class="text-xl font-bold text-center my-6">个人排班</h1>
 
         <!-- 首页 -->
         <div id="page-home" class="page active">
@@ -67,55 +57,18 @@
                 <h2 class="text-textSub text-sm mb-2"><i class="bi bi-calendar-check"></i> 今日排班</h2>
                 <div id="today-shift" class="text-2xl font-semibold text-primary">加载中...</div>
                 <div id="shift-time" class="text-textSub mt-1"></div>
-                <!-- 班次倒计时 -->
                 <div id="shift-countdown" class="mt-3 text-lg font-medium"></div>
-                <div id="today-colleagues" class="mt-3"><span class="text-textSub">同事：</span><span></span></div>
                 <div id="today-note" class="mt-2 text-warning"></div>
             </div>
 
-            <!-- 新增：次日班次提醒卡片 -->
             <div class="card mb-5">
                 <h2 class="text-textSub text-sm mb-2"><i class="bi bi-calendar-next"></i> 次日班次预告</h2>
                 <div id="tomorrow-shift" class="text-xl font-semibold text-secondary">加载中...</div>
                 <div id="tomorrow-shift-time" class="text-textSub mt-1"></div>
-                <div id="tomorrow-colleagues" class="mt-2 text-sm"></div>
-            </div>
-
-            <!-- 首页新增：待办备注列表 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>排班备注待办</h2>
-                <div class="flex gap-2 mb-3">
-                    <input id="home-todo-input" class="input flex-1" placeholder="新增备注事项...">
-                    <button onclick="addHomeTodo()" class="btn btn-primary">添加</button>
-                </div>
-                <div id="todo-list-wrap" class="space-y-2 max-h-52 overflow-auto">
-                    <!-- 待办项渲染在这里 -->
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="goPage('page-calendar')" class="btn btn-gray">
-                    <i class="bi bi-calendar3"></i>排班日历
-                </button>
-                <button onclick="goPage('page-stat')" class="btn btn-gray">
-                    <i class="bi bi-bar-chart"></i>班次统计
-                </button>
-                <button onclick="goPage('page-edit')" class="btn btn-gray">
-                    <i class="bi bi-pencil-square"></i>录入排班
-                </button>
-                <button onclick="goPage('page-setting')" class="btn btn-gray">
-                    <i class="bi bi-gear"></i>基础配置
-                </button>
-                <button onclick="goPage('page-image')" class="btn btn-primary col-span-2">
-                    <i class="bi bi-images"></i>图片相册
-                </button>
-                <button onclick="goPage('page-data')" class="btn btn-gray col-span-2">
-                    <i class="bi bi-database"></i>导入导出备份
-                </button>
             </div>
         </div>
 
-        <!-- 日历页 -->
+        <!-- 日历页【修复下拉UI + 批量导入】 -->
         <div id="page-calendar" class="page">
             <div class="card mb-5">
                 <div class="flex justify-between items-center mb-4">
@@ -128,75 +81,46 @@
                     </button>
                 </div>
                 <div class="grid grid-cols-7 gap-1 text-center text-sm mb-2">
-                    <div class="text-textSub">一</div>
-                    <div class="text-textSub">二</div>
-                    <div class="text-textSub">三</div>
-                    <div class="text-textSub">四</div>
-                    <div class="text-textSub">五</div>
-                    <div class="text-textSub">六</div>
-                    <div class="text-textSub">日</div>
+                    <div class="text-textSub">一</div><div class="text-textSub">二</div><div class="text-textSub">三</div>
+                    <div class="text-textSub">四</div><div class="text-textSub">五</div><div class="text-textSub">六</div><div class="text-textSub">日</div>
                 </div>
                 <div id="cal-grid" class="grid grid-cols-7 gap-1 text-center text-sm"></div>
             </div>
-            <!-- 日历页同步展示备注待办 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>全部备注待办</h2>
-                <div id="cal-todo-wrap" class="space-y-2 max-h-44 overflow-auto"></div>
-            </div>
-            <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
-        </div>
 
-        <!-- 统计页 -->
-        <div id="page-stat" class="page">
+            <!-- 批量导入区域 -->
             <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-4"><i class="bi bi-bar-chart-line"></i>本月班次统计</h2>
-                <canvas id="statChart"></canvas>
-                <div id="stat-text" class="mt-4 leading-relaxed"></div>
+                <h3 class="font-bold mb-2">批量导入排班</h3>
+                <p class="text-textSub text-xs mb-2">格式示例：ABC休，从当月1号依次填充，A/B/C/休</p>
+                <input id="batchInput" class="input" placeholder="输入排班字符，例如：ABC休A休B">
+                <button onclick="importBatchShift()" class="btn btn-primary w-full mt-3">导入当月排班</button>
             </div>
-            <!-- 统计页同步展示备注待办 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>全部备注待办</h2>
-                <div id="stat-todo-wrap" class="space-y-2 max-h-44 overflow-auto"></div>
-            </div>
-            <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
-        </div>
 
-        <!-- 排班录入页（新版） -->
-        <div id="page-edit" class="page">
-            <div class="card mb-5 space-y-4">
-                <h2 class="text-textSub text-sm"><i class="bi bi-pencil-square"></i>新增/修改当日排班</h2>
-                <div>
-                    <label class="block mb-1 font-medium">日期</label>
-                    <input id="edit-date" type="date" class="input">
-                </div>
-                <div>
-                    <label class="block mb-1 font-medium">班次</label>
-                    <select id="edit-shift" class="input"></select>
-                </div>
-                <div>
-                    <label class="block mb-1 font-medium">选择同事（可多选）</label>
-                    <div id="colleague-check-group" class="flex flex-wrap gap-2 mt-2"></div>
-                </div>
+            <!-- 选中日期编辑区：备注写在这里，页面内直接修改 -->
+            <div class="card mb-5" id="cal-edit-area">
+                <h3 id="cal-selected-date" class="font-bold mb-3">请选择日历日期</h3>
                 <div>
                     <label class="block mb-1 font-medium">备注</label>
-                    <textarea id="edit-note" class="input h-20 resize-none" placeholder="替班、请假等备注信息"></textarea>
+                    <textarea id="cal-note-input" class="input h-16 resize-none" placeholder="填写备注" oninput="saveSelectedNote()"></textarea>
                 </div>
-                <button onclick="saveShift()" class="btn btn-primary w-full">
-                    <i class="bi bi-save"></i>保存排班
-                </button>
-                <button onclick="delShift()" class="btn btn-danger w-full">
-                    <i class="bi bi-trash"></i>删除当日排班
-                </button>
-            </div>
-            <!-- 录入页同步展示备注待办 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>全部备注待办</h2>
-                <div id="edit-todo-wrap" class="space-y-2 max-h-44 overflow-auto"></div>
+                <button onclick="clearSelectedDay()" class="btn btn-danger w-full mt-3">清空当天排班</button>
             </div>
             <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
         </div>
 
-        <!-- 基础配置页：班次模板、同事列表 -->
+        <!-- 待办事项页面（新增） -->
+        <div id="page-todo" class="page">
+            <div class="card mb-5">
+                <h2 class="font-bold mb-4"><i class="bi bi-list-task"></i> 待办事项</h2>
+                <div class="flex gap-2">
+                    <input id="todoInput" class="input flex-1" placeholder="输入新事项">
+                    <button onclick="addTodo()" class="btn btn-primary shrink-0">添加</button>
+                </div>
+                <div id="todoList" class="mt-4 space-y-3"></div>
+            </div>
+            <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
+        </div>
+
+        <!-- 设置页：仅班次模板 -->
         <div id="page-setting" class="page">
             <div class="card mb-5">
                 <h2 class="text-textSub text-sm mb-3"><i class="bi bi-clock"></i>自定义班次模板</h2>
@@ -209,142 +133,66 @@
                     <div id="shift-template-list" class="space-y-2 max-h-48 overflow-auto"></div>
                 </div>
             </div>
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-people"></i>同事名单管理</h2>
-                <div class="flex gap-2">
-                    <input id="new-colleague" class="input flex-1" placeholder="输入同事姓名">
-                    <button onclick="addColleague()" class="btn btn-primary">添加</button>
-                </div>
-                <div id="colleague-list" class="flex flex-wrap gap-2 mt-3 max-h-40 overflow-auto"></div>
-            </div>
-            <!-- 设置页同步展示备注待办 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>全部备注待办</h2>
-                <div id="setting-todo-wrap" class="space-y-2 max-h-44 overflow-auto"></div>
-            </div>
-            <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
-        </div>
-
-        <!-- 图片相册页面 -->
-        <div id="page-image" class="page">
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-images"></i>图片相册</h2>
-                <label class="btn btn-primary w-full cursor-pointer mb-4">
-                    <i class="bi bi-upload"></i>上传图片
-                    <input type="file" id="img-upload" accept="image/*" class="hidden" multiple onchange="uploadImages(event)">
-                </label>
-                <div id="img-gallery" class="grid grid-cols-3 gap-3"></div>
-            </div>
-            <!-- 相册页同步展示备注待办 -->
-            <div class="card mb-5">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-sticky"></i>全部备注待办</h2>
-                <div id="image-todo-wrap" class="space-y-2 max-h-44 overflow-auto"></div>
-            </div>
-            <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
-        </div>
-
-        <!-- 导入导出页 -->
-        <div id="page-data" class="page">
-            <div class="card mb-5 space-y-3">
-                <h2 class="text-textSub text-sm mb-3"><i class="bi bi-database"></i>数据备份管理</h2>
-                <div class="font-medium">JSON完整备份（排班+配置+图片+备注待办）</div>
-                <button onclick="exportData()" class="btn btn-primary w-full">导出JSON</button>
-                <label class="btn btn-gray w-full cursor-pointer">
-                    <i class="bi bi-upload"></i>导入JSON
-                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
-                </label>
-                <div class="font-medium mt-2">CSV表格（仅排班文字，不含图片、配置、备注待办）</div>
-                <button onclick="exportCsv()" class="btn btn-primary w-full">导出CSV表格</button>
-                <label class="btn btn-gray w-full cursor-pointer">
-                    <i class="bi bi-upload"></i>导入CSV
-                    <input type="file" id="import-csv-file" accept=".csv" class="hidden" onchange="importCsv(event)">
-                </label>
-                <div class="text-sm text-textSub">⚠️导入会覆盖当前数据，请先备份！</div>
-                <button onclick="clearAllData()" class="btn btn-danger w-full">清空全部数据</button>
-            </div>
             <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
         </div>
     </div>
 
-    <!-- ========== 底部固定导航栏 ========== -->
+    <!-- 底部导航：移除录入，改为首页｜日历｜待办｜设置 -->
     <div class="fixed bottom-0 left-0 right-0 bg-bgCard shadow-lg border-t border-bgGray z-40">
-        <div class="max-w-xl mx-auto grid grid-cols-6">
+        <div class="max-w-xl mx-auto grid grid-cols-4">
             <div onclick="goPage('page-home')" class="nav-item" data-target="page-home">
-                <i class="bi bi-house-fill text-xl"></i>
-                <span class="text-xs mt-1">首页</span>
+                <i class="bi bi-house-fill text-xl"></i><span class="text-xs mt-1">首页</span>
             </div>
             <div onclick="goPage('page-calendar')" class="nav-item" data-target="page-calendar">
-                <i class="bi bi-calendar3 text-xl"></i>
-                <span class="text-xs mt-1">日历</span>
+                <i class="bi bi-calendar3 text-xl"></i><span class="text-xs mt-1">日历</span>
             </div>
-            <div onclick="goPage('page-edit')" class="nav-item" data-target="page-edit">
-                <i class="bi bi-pencil-square text-xl"></i>
-                <span class="text-xs mt-1">录入</span>
-            </div>
-            <div onclick="goPage('page-stat')" class="nav-item" data-target="page-stat">
-                <i class="bi bi-bar-chart text-xl"></i>
-                <span class="text-xs mt-1">统计</span>
-            </div>
-            <div onclick="goPage('page-image')" class="nav-item" data-target="page-image">
-                <i class="bi bi-images text-xl"></i>
-                <span class="text-xs mt-1">相册</span>
+            <div onclick="goPage('page-todo')" class="nav-item" data-target="page-todo">
+                <i class="bi bi-list-task text-xl"></i><span class="text-xs mt-1">待办</span>
             </div>
             <div onclick="goPage('page-setting')" class="nav-item" data-target="page-setting">
-                <i class="bi bi-gear text-xl"></i>
-                <span class="text-xs mt-1">设置</span>
+                <i class="bi bi-gear text-xl"></i><span class="text-xs mt-1">设置</span>
             </div>
-        </div>
-    </div>
-
-    <!-- 图片全屏横屏查看弹窗 -->
-    <div id="img-modal" class="fixed inset-0 bg-black/95 z-50 hidden flex-col items-center justify-center overflow-hidden">
-        <button onclick="closeImageModal()" class="absolute top-4 right-4 text-white text-3xl z-10">
-            <i class="bi bi-x-circle"></i>
-        </button>
-        <div id="img-zoom-wrap" style="width:100%;height:100%;overflow:hidden;cursor:grab;">
-            <img id="img-zoom" style="width:100%;height:100%;object-fit:contain;transform-origin:center center;" src="" alt="">
         </div>
     </div>
 
     <script>
-        //图片缩放变量
-        let scale = 1;
-        let translateX = 0, translateY = 0;
-        let isDrag = false;
-        let startX = 0, startY = 0;
         let currentMonth = new Date();
         let countdownTimer = null;
+        let selectedDate = null; // 当前选中的日期
 
-        // 初始化默认基础配置，新增todo备注待办数组
         const defaultStore = {
             shiftList:{},
-            images:[],
             shiftTemplates:[
                 {key:'A',name:'A班',time:'07:00-15:30'},
                 {key:'B',name:'B班',time:'15:00-23:30'},
                 {key:'C',name:'C班',time:'23:00-07:30'},
-                {key:'D',name:'D班',time:'08:00-18:00'},
                 {key:'休',name:'休息',time:'休息'}
-            ],
-            colleagueList:["朱敏","伍青"],
-            todoList:[] // 备注待办：[{text:"xxx",done:false,id:uuid}]
+            ]
         };
 
+        //===== 排班存储 =====
         function getStore(){
             const raw = localStorage.getItem("shift-data");
             if(!raw) return JSON.parse(JSON.stringify(defaultStore));
             const data = JSON.parse(raw);
-            //兼容旧版本，补齐配置字段
             if(!data.shiftTemplates) data.shiftTemplates = defaultStore.shiftTemplates;
-            if(!data.colleagueList) data.colleagueList = defaultStore.colleagueList;
-            if(!data.todoList) data.todoList = [];
             return data;
         }
         function saveStore(data){
             localStorage.setItem("shift-data", JSON.stringify(data));
         }
 
-        // 解析班次时间段，返回开始、结束时间
+        //===== 待办事项存储 =====
+        function getTodoList(){
+            const raw = localStorage.getItem("todo-list");
+            if(!raw) return [];
+            return JSON.parse(raw);
+        }
+        function saveTodoList(list){
+            localStorage.setItem("todo-list", JSON.stringify(list));
+        }
+
+        //解析班次时间
         function parseShiftTime(timeStr){
             if(!timeStr || timeStr === "休息") return null;
             const arr = timeStr.split("-");
@@ -352,7 +200,7 @@
             return {start:arr[0].trim(), end:arr[1].trim()};
         }
 
-        // 班次倒计时
+        //班次倒计时
         function renderCountdown(){
             const store = getStore();
             const todayStr = new Date().toISOString().split('T')[0];
@@ -377,10 +225,7 @@
             shiftStart.setHours(startH,startM,0,0);
             let shiftEnd = new Date();
             shiftEnd.setHours(endH,endM,0,0);
-            //跨夜班处理（例如23:00-07:30）
-            if(shiftEnd < shiftStart){
-                shiftEnd.setDate(shiftEnd.getDate()+1);
-            }
+            if(shiftEnd < shiftStart) shiftEnd.setDate(shiftEnd.getDate()+1);
             let diff;
             if(now < shiftStart){
                 diff = shiftStart - now;
@@ -402,123 +247,52 @@
             }
         }
 
-        // 待办备注渲染函数，统一渲染所有页面的待办区域
-        function renderTodo(wrapId){
-            const store = getStore();
-            const wrap = document.getElementById(wrapId);
-            let html = "";
-            store.todoList.forEach((item, idx)=>{
-                const lineCls = item.done ? "todo-line-through" : "";
-                html += `
-                <div class="flex items-center gap-2 bg-bgGray p-2 rounded-lg">
-                    <input type="checkbox" ${item.done?"checked":""} onchange="toggleTodo(${idx})" class="w-5 h-5">
-                    <span class="flex-1 ${lineCls}">${item.text}</span>
-                    <button onclick="delTodo(${idx})" class="text-danger"><i class="bi bi-x"></i></button>
-                </div>`;
-            })
-            if(store.todoList.length ===0){
-                html = `<div class="text-textSub text-sm">暂无备注事项</div>`;
-            }
-            wrap.innerHTML = html;
-        }
-
-        // 添加首页待办
-        function addHomeTodo(){
-            const inputEl = document.getElementById("home-todo-input");
-            const text = inputEl.value.trim();
-            if(!text) return;
-            const store = getStore();
-            store.todoList.push({
-                text: text,
-                done: false,
-                id: Date.now()
-            })
-            saveStore(store);
-            inputEl.value = "";
-            renderAllTodo();
-        }
-        //勾选切换完成状态
-        function toggleTodo(idx){
-            const store = getStore();
-            store.todoList[idx].done = !store.todoList[idx].done;
-            saveStore(store);
-            renderAllTodo();
-        }
-        //删除单条待办
-        function delTodo(idx){
-            if(!confirm("删除这条备注？")) return;
-            const store = getStore();
-            store.todoList.splice(idx,1);
-            saveStore(store);
-            renderAllTodo();
-        }
-        //一次性渲染全部页面的待办区域
-        function renderAllTodo(){
-            renderTodo("todo-list-wrap");
-            renderTodo("cal-todo-wrap");
-            renderTodo("stat-todo-wrap");
-            renderTodo("edit-todo-wrap");
-            renderTodo("setting-todo-wrap");
-            renderTodo("image-todo-wrap");
-        }
-
         //页面切换
         function goPage(pageId){
             document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
             document.getElementById(pageId).classList.add("active");
-            // 更新底部导航激活状态
             document.querySelectorAll('.nav-item').forEach(item=>{
-                if(item.dataset.target === pageId){
-                    item.classList.add('active');
-                }else{
-                    item.classList.remove('active');
-                }
+                item.classList.toggle('active', item.dataset.target === pageId);
             })
             if(countdownTimer) clearInterval(countdownTimer);
             if(pageId === 'page-home') {
                 renderHome();
                 countdownTimer = setInterval(renderCountdown,1000);
             }
-            if(pageId === 'page-calendar') renderCalendar();
-            if(pageId === 'page-stat') renderStat();
-            if(pageId === 'page-image') renderImageGallery();
+            if(pageId === 'page-calendar') {
+                selectedDate = null;
+                document.getElementById("cal-selected-date").innerText = "请选择日历日期";
+                document.getElementById("cal-note-input").value = "";
+                renderCalendar();
+            }
+            if(pageId === 'page-todo') renderTodoPage();
             if(pageId === 'page-setting') renderSetting();
-            if(pageId === 'page-edit') renderEditPage();
-            renderAllTodo(); //切换页面自动刷新备注待办
         }
 
-        //首页渲染（新增次日班次）
+        //首页渲染
         function renderHome(){
             const store = getStore();
             const todayStr = new Date().toISOString().split('T')[0];
-            const todayShift = store.shiftList[todayStr] || {shift:'休', colleagues:[], note:''};
+            const todayShift = store.shiftList[todayStr] || {shift:'休', note:''};
             const shiftItem = store.shiftTemplates.find(s=>s.key === todayShift.shift) || {name:'休息',time:''};
             document.getElementById('today-shift').innerText = todayShift.shift === '休' ? "今日休息" : `今日班次：${shiftItem.name}`;
             document.getElementById('shift-time').innerText = shiftItem.time;
-            document.querySelector("#today-colleagues span").innerText = Array.isArray(todayShift.colleagues) ? todayShift.colleagues.join("、") : todayShift.colleagues;
             document.getElementById("today-note").innerText = todayShift.note ? `备注：${todayShift.note}` : '';
 
-            // 次日班次
+            //次日班次
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate()+1);
             const tomorrowStr = tomorrow.toISOString().split('T')[0];
-            const tomorrowShift = store.shiftList[tomorrowStr] || {shift:'休', colleagues:[]};
+            const tomorrowShift = store.shiftList[tomorrowStr] || {shift:'休'};
             const tomorrowItem = store.shiftTemplates.find(s=>s.key === tomorrowShift.shift) || {name:'休息',time:''};
             document.getElementById("tomorrow-shift").innerText = tomorrowShift.shift === '休' ? "明日休息" : `明日班次：${tomorrowItem.name}`;
             document.getElementById("tomorrow-shift-time").innerText = tomorrowItem.time;
-            const colText = Array.isArray(tomorrowShift.colleagues) ? tomorrowShift.colleagues.join("、") : "";
-            document.getElementById("tomorrow-colleagues").innerText = colText ? `同事：${colText}` : "";
         }
 
         //日历
         function changeMonth(delta){
             currentMonth.setMonth(currentMonth.getMonth()+delta);
             renderCalendar();
-            //修复：切换月份后，统计页面自动刷新图表
-            if(document.getElementById('page-stat').classList.contains('active')){
-                renderStat();
-            }
-            renderAllTodo();
         }
         function renderCalendar(){
             const store = getStore();
@@ -533,79 +307,139 @@
                 const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const sd = store.shiftList[ds];
                 const isToday = new Date().toDateString() === new Date(y,m,d).toDateString();
-                let cls = 'p-2 rounded-lg';
+                const isSelected = selectedDate === ds;
+                let cls = 'day-cell';
                 if(isToday) cls += ' bg-primary text-white';
                 else if(sd){
                     if(sd.shift === '休') cls += ' bg-bgGray text-textSub';
                     else cls += ' bg-sky-100 text-primary';
                 }else cls += ' bg-bgGray/50 text-textSub';
-                const shiftName = sd ? store.shiftTemplates.find(t=>t.key===sd.shift)?.name || sd.shift : "";
-                html += `<div class="${cls}" onclick="editCalDate('${ds}')">${d}<br><span class="text-xs">${shiftName}</span></div>`;
+                if(isSelected) cls += ' day-cell-selected';
+
+                //【UI调整】下拉框统一风格，和页面input样式一致
+                if(isSelected){
+                    let selHtml = `<select class="bg-bgGray rounded-lg text-xs p-1 w-full border-0 outline-none" onclick="event.stopPropagation()" onchange="changeDayShift('${ds}',this.value)">`;
+                    store.shiftTemplates.forEach(t=>{
+                        selHtml += `<option value="${t.key}" ${sd && sd.shift === t.key ? 'selected' : ''}>${t.name}</option>`;
+                    })
+                    selHtml += `</select>`;
+                    html += `<div class="${cls}" onclick="selectDate('${ds}',event)">${d}<br>${selHtml}</div>`;
+                }else{
+                    const shiftName = sd ? store.shiftTemplates.find(t=>t.key===sd.shift)?.name || sd.shift : "";
+                    html += `<div class="${cls}" onclick="selectDate('${ds}',event)">${d}<br><span class="text-xs">${shiftName}</span></div>`;
+                }
             }
             document.getElementById("cal-grid").innerHTML = html;
         }
-        function editCalDate(ds){
-            document.getElementById("edit-date").value = ds;
-            goPage('page-edit');
+
+        //选中日期
+        function selectDate(ds, e){
+            e.stopPropagation();
+            selectedDate = ds;
+            const store = getStore();
+            const data = store.shiftList[ds] || {shift:'休', note:''};
+            document.getElementById("cal-selected-date").innerText = `选中日期：${ds}`;
+            document.getElementById("cal-note-input").value = data.note || "";
+            renderCalendar();
         }
 
-        //排班录入页面渲染
-        function renderEditPage(){
+        //修改班次，自动保存，修改后保留选中状态
+        function changeDayShift(dateStr, shiftKey){
             const store = getStore();
-            const dateVal = document.getElementById("edit-date").value;
-            const dayData = dateVal ? store.shiftList[dateVal] || {shift:'休', colleagues:[], note:''} : {shift:'休', colleagues:[], note:''};
-            //渲染班次下拉
-            const shiftSel = document.getElementById("edit-shift");
-            shiftSel.innerHTML = "";
-            store.shiftTemplates.forEach(t=>{
-                shiftSel.innerHTML += `<option value="${t.key}">${t.name}｜${t.time}</option>`;
-            });
-            shiftSel.value = dayData.shift;
-            //同事多选复选框
-            const colWrap = document.getElementById("colleague-check-group");
-            colWrap.innerHTML = "";
-            const selectedCols = Array.isArray(dayData.colleagues) ? dayData.colleagues : [];
-            store.colleagueList.forEach(name=>{
-                const checked = selectedCols.includes(name) ? "checked" : "";
-                colWrap.innerHTML += `
-                <label class="bg-bgGray px-2 py-1 rounded-lg flex items-center gap-1">
-                    <input type="checkbox" value="${name}" ${checked}> ${name}
-                </label>`;
+            const oldData = store.shiftList[dateStr] || {note:""};
+            store.shiftList[dateStr] = {shift: shiftKey, note: oldData.note};
+            saveStore(store);
+            selectedDate = dateStr;
+            renderCalendar();
+        }
+
+        //保存选中日期的备注
+        function saveSelectedNote(){
+            if(!selectedDate) return;
+            const store = getStore();
+            const noteVal = document.getElementById("cal-note-input").value.trim();
+            const oldData = store.shiftList[selectedDate] || {shift:'休'};
+            store.shiftList[selectedDate] = {shift: oldData.shift, note: noteVal};
+            saveStore(store);
+        }
+
+        //清空当天排班
+        function clearSelectedDay(){
+            if(!selectedDate) return;
+            const store = getStore();
+            delete store.shiftList[selectedDate];
+            saveStore(store);
+            document.getElementById("cal-note-input").value = "";
+            renderCalendar();
+        }
+
+        //===== 批量导入排班 =====
+        function importBatchShift(){
+            const inputText = document.getElementById("batchInput").value.trim();
+            if(!inputText) return;
+            const store = getStore();
+            const y = currentMonth.getFullYear();
+            const m = currentMonth.getMonth();
+            const totalDay = new Date(y,m+1,0).getDate();
+            for(let i=0; i<inputText.length; i++){
+                const dayNum = i+1;
+                if(dayNum > totalDay) break;
+                const char = inputText[i];
+                const matchShift = store.shiftTemplates.find(t=> t.key === char);
+                if(!matchShift) continue;
+                const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+                const oldItem = store.shiftList[dateStr] || {note:""};
+                store.shiftList[dateStr] = {shift: char, note: oldItem.note};
+            }
+            saveStore(store);
+            renderCalendar();
+            document.getElementById("batchInput").value = "";
+        }
+
+        //===== 待办事项函数 =====
+        function renderTodoPage(){
+            const list = getTodoList();
+            const wrap = document.getElementById("todoList");
+            wrap.innerHTML = "";
+            list.forEach((item, idx)=>{
+                const lineClass = item.done ? "todo-line" : "";
+                wrap.innerHTML += `
+                <div class="flex items-center gap-2 bg-bgGray p-3 rounded-lg">
+                    <input type="checkbox" class="w-5 h-5" ${item.done?"checked":""} onchange="toggleTodo(${idx})">
+                    <span class="flex-1 ${lineClass}">${escapeHtml(item.text)}</span>
+                    <button onclick="delTodo(${idx})" class="text-danger"><i class="bi bi-trash"></i></button>
+                </div>`;
             })
-            document.getElementById("edit-note").value = dayData.note || "";
+        }
+        function escapeHtml(str){
+            return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        }
+        function addTodo(){
+            const inp = document.getElementById("todoInput");
+            const txt = inp.value.trim();
+            if(!txt) return;
+            const list = getTodoList();
+            list.push({text:txt, done:false});
+            saveTodoList(list);
+            inp.value = "";
+            renderTodoPage();
+        }
+        function toggleTodo(index){
+            const list = getTodoList();
+            list[index].done = !list[index].done;
+            saveTodoList(list);
+            renderTodoPage();
+        }
+        function delTodo(index){
+            const list = getTodoList();
+            list.splice(index,1);
+            saveTodoList(list);
+            renderTodoPage();
         }
 
-        function saveShift(){
-            const ds = document.getElementById("edit-date").value;
-            if(!ds) return alert("请选择日期");
-            const store = getStore();
-            const shiftKey = document.getElementById("edit-shift").value;
-            //获取选中同事
-            const checks = document.querySelectorAll("#colleague-check-group input:checked");
-            const cols = Array.from(checks).map(el=>el.value);
-            const note = document.getElementById("edit-note").value.trim();
-            store.shiftList[ds] = {
-                shift: shiftKey,
-                colleagues: cols,
-                note: note
-            };
-            saveStore(store);
-            alert("✅ 排班保存成功");
-            goPage('page-home');
-        }
-        function delShift(){
-            const ds = document.getElementById("edit-date").value;
-            const store = getStore();
-            delete store.shiftList[ds];
-            saveStore(store);
-            alert("✅ 已删除当日排班");
-            goPage('page-home');
-        }
-
-        //基础配置页面
+        //设置页班次模板
         function renderSetting(){
             const store = getStore();
-            //班次模板列表
             let shiftHtml = "";
             store.shiftTemplates.forEach((item,idx)=>{
                 shiftHtml += `
@@ -615,16 +449,6 @@
                 </div>`;
             })
             document.getElementById("shift-template-list").innerHTML = shiftHtml;
-            //同事列表
-            let colHtml = "";
-            store.colleagueList.forEach((name,idx)=>{
-                colHtml += `
-                <span class="bg-bgGray px-2 py-1 rounded-lg flex items-center gap-1">
-                    ${name}
-                    <button onclick="delColleague(${idx})" class="text-danger"><i class="bi bi-x"></i></button>
-                </span>`;
-            })
-            document.getElementById("colleague-list").innerHTML = colHtml;
         }
         function addShiftTemplate(){
             const name = document.getElementById("new-shift-name").value.trim();
@@ -635,232 +459,22 @@
             store.shiftTemplates.push({key:newKey,name,time});
             saveStore(store);
             renderSetting();
+            renderCalendar();
             document.getElementById("new-shift-name").value = "";
             document.getElementById("new-shift-time").value = "";
         }
         function delShiftTemplate(idx){
-            if(!confirm("确定删除该班次模板？")) return;
+            if(!confirm("确定删除该班次模板？已有排班使用该班次会显示名称异常")) return;
             const store = getStore();
             store.shiftTemplates.splice(idx,1);
             saveStore(store);
             renderSetting();
-        }
-        function addColleague(){
-            const name = document.getElementById("new-colleague").value.trim();
-            if(!name) return;
-            const store = getStore();
-            if(!store.colleagueList.includes(name)){
-                store.colleagueList.push(name);
-                saveStore(store);
-                renderSetting();
-            }
-            document.getElementById("new-colleague").value = "";
-        }
-        function delColleague(idx){
-            if(!confirm("删除该同事？")) return;
-            const store = getStore();
-            store.colleagueList.splice(idx,1);
-            saveStore(store);
-            renderSetting();
-        }
-
-        //统计
-        function renderStat(){
-            const store = getStore();
-            const y = currentMonth.getFullYear();
-            const m = currentMonth.getMonth();
-            let count = {};
-            store.shiftTemplates.forEach(t=>count[t.key]=0);
-            Object.keys(store.shiftList).forEach(k=>{
-                const dt = new Date(k);
-                if(dt.getFullYear() === y && dt.getMonth() === m){
-                    const s = store.shiftList[k].shift;
-                    count[s] = (count[s]||0)+1;
-                }
-            });
-            const ctx = document.getElementById('statChart').getContext('2d');
-            if(window.statChart) window.statChart.destroy();
-            const labels = store.shiftTemplates.map(t=>t.name);
-            const dataArr = store.shiftTemplates.map(t=>count[t.key]);
-            window.statChart = new Chart(ctx,{
-                type:'bar',
-                data:{labels:labels,datasets:[{data:dataArr,borderRadius:8}]},
-                options:{responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}}
-            });
-            let statText = "";
-            store.shiftTemplates.forEach(t=> statText += `${t.name}：${count[t.key]}天｜`);
-            document.getElementById("stat-text").innerText = statText.slice(0,-1);
-        }
-
-        //图片相册
-        function uploadImages(e){
-            const files = e.target.files;
-            if(!files.length) return;
-            const store = getStore();
-            for(let file of files){
-                const reader = new FileReader();
-                reader.onload = function(ev){
-                    store.images.push(ev.target.result);
-                    saveStore(store);
-                    renderImageGallery();
-                    renderAllTodo();
-                }
-                reader.readAsDataURL(file);
-            }
-            e.target.value = '';
-        }
-        function renderImageGallery(){
-            const store = getStore();
-            const wrap = document.getElementById('img-gallery');
-            let html = '';
-            store.images.forEach((src,idx)=>{
-                html += `
-                <div class="relative">
-                    <img src="${src}" class="w-full h-24 object-cover rounded-xl" onclick="openImageModal(${idx})">
-                    <button onclick="delImage(${idx})" class="absolute top-1 right-1 bg-danger text-white rounded-full w-6 h-6 text-xs">×</button>
-                </div>`;
-            })
-            wrap.innerHTML = html;
-        }
-        function delImage(index){
-            if(!confirm("确定删除这张图片？删除后本地存储清除，无法恢复！")) return;
-            const store = getStore();
-            store.images.splice(index,1);
-            saveStore(store);
-            renderImageGallery();
-            renderAllTodo();
-        }
-        function openImageModal(idx){
-            const store = getStore();
-            const imgSrc = store.images[idx];
-            const modal = document.getElementById('img-modal');
-            const img = document.getElementById('img-zoom');
-            img.src = imgSrc;
-            scale = 1;
-            translateX = 0;
-            translateY = 0;
-            img.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-        function closeImageModal(){
-            const modal = document.getElementById('img-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-        //图片缩放拖拽
-        const zoomImg = document.getElementById('img-zoom');
-        const zoomWrap = document.getElementById('img-zoom-wrap');
-        zoomWrap.addEventListener('wheel',(e)=>{
-            e.preventDefault();
-            scale += e.deltaY<0 ? 0.15 : -0.15;
-            scale = Math.max(0.3, Math.min(3, scale));
-            zoomImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
-        })
-        zoomWrap.addEventListener('mousedown',(e)=>{
-            isDrag=true; startX=e.clientX; startY=e.clientY; zoomWrap.style.cursor='grabbing';
-        })
-        window.addEventListener('mousemove',(e)=>{
-            if(!isDrag) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            startX = e.clientX; startY = e.clientY;
-            translateX += dx; translateY += dy;
-            zoomImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
-        })
-        window.addEventListener('mouseup',()=>{isDrag=false; zoomWrap.style.cursor='grab';})
-        let lastTouchDistance = 0;
-        zoomWrap.addEventListener('touchstart',(e)=>{if(e.touches.length===2) lastTouchDistance = getTouchDistance(e.touches);})
-        zoomWrap.addEventListener('touchmove',(e)=>{
-            if(e.touches.length===2){
-                e.preventDefault();
-                const dist = getTouchDistance(e.touches);
-                scale += (dist - lastTouchDistance) >0 ? 0.05 : -0.05;
-                scale = Math.max(0.3, Math.min(3, scale));
-                zoomImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
-                lastTouchDistance = dist;
-            }
-        })
-        function getTouchDistance(touches){
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx*dx+dy*dy);
-        }
-
-        //导入导出
-        function exportData(){
-            const store = getStore();
-            const blob = new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = "排班完整备份.json"; a.click();
-            URL.revokeObjectURL(url);
-        }
-        function importData(e){
-            const f = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = function(ev){
-                try{
-                    const data = JSON.parse(ev.target.result);
-                    saveStore(data);
-                    alert("✅ JSON导入成功");
-                    renderAllTodo();
-                }catch(err){alert("❌ 文件解析失败")}
-            };
-            reader.readAsText(f);
-        }
-        function exportCsv(){
-            const store = getStore();
-            let csv = "日期,班次key,同事,备注\n";
-            Object.keys(store.shiftList).sort().forEach(date=>{
-                const item = store.shiftList[date];
-                const colStr = Array.isArray(item.colleagues) ? item.colleagues.join("|") : item.colleagues;
-                csv += `${date},${item.shift},${colStr},${item.note||''}\n`;
-            });
-            const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = "排班表.csv"; a.click();
-            URL.revokeObjectURL(url);
-        }
-        function importCsv(e){
-            const f = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = function(ev){
-                try{
-                    const lines = ev.target.result.split(/\r?\n/);
-                    const store = getStore();
-                    for(let i=1;i<lines.length;i++){
-                        const line = lines[i].trim();
-                        if(!line) continue;
-                        const cols = line.split(',');
-                        const date = cols[0].trim();
-                        const shift = cols[1].trim();
-                        const colleagues = (cols[2]||'').split("|").filter(x=>x);
-                        const note = cols[3]||'';
-                        if(date && shift){
-                            store.shiftList[date] = {shift, colleagues, note};
-                        }
-                    }
-                    saveStore(store);
-                    alert("✅ CSV导入成功");
-                    renderAllTodo();
-                }catch(err){alert("❌ CSV解析失败")}
-            };
-            reader.readAsText(f);
-        }
-        function clearAllData(){
-            if(confirm("⚠️ 确定清空全部排班、配置、图片、备注待办？无法恢复！")){
-                localStorage.removeItem("shift-data");
-                alert("✅ 全部数据清空");
-            }
+            renderCalendar();
         }
 
         window.onload = function(){
             renderHome();
-            renderAllTodo();
             countdownTimer = setInterval(renderCountdown,1000);
-            //初始化底部导航激活状态
             document.querySelector(`.nav-item[data-target="page-home"]`).classList.add('active');
         }
     </script>
