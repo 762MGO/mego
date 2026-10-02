@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>前厅排班助手</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script>
 tailwind.config = {
@@ -60,16 +59,13 @@ tailwind.config = {
       <button onclick="goPage('page-calendar')" class="btn btn-gray">
         <i class="bi bi-calendar3"></i>排班日历
       </button>
-      <button onclick="goPage('page-stat')" class="btn btn-gray">
-        <i class="bi bi-bar-chart"></i>班次统计
-      </button>
       <button onclick="goPage('page-edit')" class="btn btn-gray">
         <i class="bi bi-pencil-square"></i>录入排班
       </button>
       <button onclick="goPage('page-setting')" class="btn btn-gray">
         <i class="bi bi-gear"></i>基础配置
       </button>
-      <button onclick="goPage('page-image')" class="btn btn-gray col-span-2">
+      <button onclick="goPage('page-image')" class="btn btn-gray">
         <i class="bi bi-images"></i>图片相册
       </button>
       <button onclick="goPage('page-data')" class="btn btn-gray col-span-2">
@@ -172,16 +168,6 @@ tailwind.config = {
       <div class="text-xs text-textSub mt-3 text-center">
         <i class="bi bi-hand-index-thumb"></i> 点击任意日期可快速选班次
       </div>
-    </div>
-    <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
-  </div>
-
-  <!-- ========== 统计页 ========== -->
-  <div id="page-stat" class="page">
-    <div class="card mb-5">
-      <h2 class="text-textSub text-sm mb-4"><i class="bi bi-bar-chart-line"></i>本月班次统计</h2>
-      <canvas id="statChart"></canvas>
-      <div id="stat-text" class="mt-4 leading-relaxed"></div>
     </div>
     <button onclick="goPage('page-home')" class="btn btn-gray w-full">返回首页</button>
   </div>
@@ -345,7 +331,7 @@ tailwind.config = {
 <!-- ========== 底部固定导航栏 ========== -->
 <div class="fixed bottom-0 left-0 right-0 bg-bgCard shadow-lg border-t border-bgGray z-40"
      style="padding-bottom:env(safe-area-inset-bottom)">
-  <div class="max-w-xl mx-auto grid grid-cols-6">
+  <div class="max-w-xl mx-auto grid grid-cols-5">
     <div onclick="goPage('page-home')" class="nav-item" data-target="page-home">
       <i class="bi bi-house-fill text-xl"></i><span class="text-xs mt-1">首页</span>
     </div>
@@ -357,9 +343,6 @@ tailwind.config = {
     </div>
     <div onclick="goPage('page-edit')" class="nav-item" data-target="page-edit">
       <i class="bi bi-pencil-square text-xl"></i><span class="text-xs mt-1">录入</span>
-    </div>
-    <div onclick="goPage('page-stat')" class="nav-item" data-target="page-stat">
-      <i class="bi bi-bar-chart text-xl"></i><span class="text-xs mt-1">统计</span>
     </div>
     <div onclick="goPage('page-setting')" class="nav-item" data-target="page-setting">
       <i class="bi bi-gear text-xl"></i><span class="text-xs mt-1">设置</span>
@@ -542,9 +525,6 @@ function getStore(){
 
   ensureSchedule(obj);
 
-  const t = todayStr();
-  Object.keys(obj.offWorkNotify).forEach(k => { if(k !== t) delete obj.offWorkNotify[k]; });
-
   storeCache = obj;
   return obj;
 }
@@ -574,7 +554,6 @@ function goPage(pageId){
   if(pageId === 'page-schedule') renderSchedule();
   if(pageId === 'page-fixed')    renderFixedMgr();
   if(pageId === 'page-calendar') renderCalendar();
-  if(pageId === 'page-stat')     renderStat();
   if(pageId === 'page-image')    renderImageGallery();
   if(pageId === 'page-setting')  renderSetting();
   if(pageId === 'page-edit')     renderEditPage();
@@ -603,7 +582,7 @@ function renderHome(){
 }
 
 /* =========================================================
-   四·1、上下班倒计时
+   四·1、上下班倒计时（修复跨夜场景）
    ========================================================= */
 function parseShiftTime(timeStr){
   if(!timeStr) return null;
@@ -616,26 +595,62 @@ function parseShiftTime(timeStr){
   return { start: start, end: end, crossDay: end <= start };
 }
 
-function getCountdownInfo(timeStr, now){
-  const info = parseShiftTime(timeStr);
-  if(!info) return null;
+/**
+ * 获取当前时刻的倒计时信息（同时考虑今天与昨天的跨夜班）
+ * 返回: null | {type:'before'|'working'|'after', minutes, crossDay, label}
+ */
+function getTodayCountdown(now){
+  const store = getStore();
   const cur = now.getHours() * 60 + now.getMinutes();
 
-  if(!info.crossDay){
-    if(cur < info.start){
-      return { type:'before', label:'距上班', minutes: info.start - cur };
-    }else if(cur < info.end){
-      return { type:'working', label:'距下班', minutes: info.end - cur };
+  // ---------- 1. 先检查昨天的跨夜班：可能凌晨还在上班 ----------
+  const yest = new Date(now);
+  yest.setDate(yest.getDate() - 1);
+  const yStr = todayStr(yest);
+  const yShift = store.shiftList[yStr];
+  if(yShift && yShift.shift && yShift.shift !== '休'){
+    const yTpl = store.shiftTemplates.find(x => x.key === yShift.shift);
+    if(yTpl && yTpl.time){
+      const yInfo = parseShiftTime(yTpl.time);
+      if(yInfo && yInfo.crossDay && cur < yInfo.end){
+        return {
+          type: 'working',
+          minutes: yInfo.end - cur,
+          crossDay: true,
+          label: '距下班'
+        };
+      }
+    }
+  }
+
+  // ---------- 2. 检查今天的班次 ----------
+  const t = todayStr(now);
+  const tShift = store.shiftList[t];
+  if(!tShift || !tShift.shift || tShift.shift === '休') return null;
+  const tTpl = store.shiftTemplates.find(x => x.key === tShift.shift);
+  if(!tTpl || !tTpl.time) return null;
+  const tInfo = parseShiftTime(tTpl.time);
+  if(!tInfo) return null;
+
+  if(!tInfo.crossDay){
+    // 普通班次
+    if(cur < tInfo.start){
+      return { type:'before', minutes: tInfo.start - cur, label:'距上班' };
+    }else if(cur < tInfo.end){
+      return { type:'working', minutes: tInfo.end - cur, label:'距下班' };
     }else{
-      return { type:'after', label:'今日班次已结束', minutes: 0 };
+      return { type:'after', minutes: 0, label:'今日班次已结束' };
     }
   }else{
-    if(cur < info.end){
-      return { type:'working', label:'距下班', minutes: info.end - cur, crossDay:true };
-    }else if(cur >= info.start){
-      return { type:'working', label:'距下班', minutes: (1440 - cur) + info.end, crossDay:true };
+    // 跨夜班次（如 23:00-07:30），今天上的是今晚到明天的那一段
+    if(cur < tInfo.end){
+      // 凌晨时段，今天这个班还没开始（要到今晚才上）
+      return { type:'before', minutes: tInfo.start - cur, label:'距上班' };
+    }else if(cur < tInfo.start){
+      return { type:'before', minutes: tInfo.start - cur, label:'距上班' };
     }else{
-      return { type:'before', label:'距上班', minutes: info.start - cur };
+      // 已开始上今天的班，下班在明天
+      return { type:'working', minutes: (1440 - cur) + tInfo.end, crossDay: true, label:'距下班' };
     }
   }
 }
@@ -654,15 +669,7 @@ function updateCountdown(){
   if(!el) return;
   if(!document.getElementById('page-home').classList.contains('active')) return;
 
-  const store = getStore();
-  const t = todayStr();
-  const todayShift = store.shiftList[t];
-  if(!todayShift || todayShift.shift === '休'){ el.innerHTML = ''; return; }
-
-  const tpl = store.shiftTemplates.find(x => x.key === todayShift.shift);
-  if(!tpl || !tpl.time){ el.innerHTML = ''; return; }
-
-  const cd = getCountdownInfo(tpl.time, new Date());
+  const cd = getTodayCountdown(new Date());
   if(!cd){ el.innerHTML = ''; return; }
 
   let cls = '', icon = '', text = '';
@@ -677,7 +684,7 @@ function updateCountdown(){
     if(cd.crossDay) text += '（次日）';
   }else{
     cls = 'bg-bgGray text-textSub'; icon = 'bi-check-circle';
-    text = '今日班次已结束';
+    text = cd.label || '今日班次已结束';
   }
 
   el.innerHTML = '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ' + cls + '">'
@@ -685,7 +692,7 @@ function updateCountdown(){
 }
 
 /* =========================================================
-   四·2、下班前30分钟提醒
+   四·2、下班前30分钟提醒（修复跨夜场景）
    ========================================================= */
 function checkOffWorkReminder(){
   const store = getStore();
@@ -695,35 +702,48 @@ function checkOffWorkReminder(){
   const t = todayStr();
   if(store.offWorkNotify[t]) return;
 
-  const todayShift = store.shiftList[t];
-  if(!todayShift || todayShift.shift === '休') return;
-
-  const tpl = store.shiftTemplates.find(x => x.key === todayShift.shift);
-  if(!tpl || !tpl.time) return;
-
-  const info = parseShiftTime(tpl.time);
-  if(!info) return;
-
   const now = new Date();
   const cur = now.getHours() * 60 + now.getMinutes();
 
-  let endMinute;
-  if(!info.crossDay){
-    if(cur < info.start) return;
-    if(cur >= info.end) return;
-    endMinute = info.end;
-  }else{
-    if(cur >= info.start){
-      endMinute = 1440 + info.end;
-    }else if(cur < info.end){
-      endMinute = info.end;
-    }else{
-      return;
+  let minutesLeft = -1;
+  let handled = false;
+
+  // ---------- 1. 昨天的跨夜班 ----------
+  const yest = new Date(now);
+  yest.setDate(yest.getDate() - 1);
+  const yStr = todayStr(yest);
+  const yShift = store.shiftList[yStr];
+  if(yShift && yShift.shift && yShift.shift !== '休'){
+    const yTpl = store.shiftTemplates.find(x => x.key === yShift.shift);
+    if(yTpl && yTpl.time){
+      const yInfo = parseShiftTime(yTpl.time);
+      if(yInfo && yInfo.crossDay && cur < yInfo.end){
+        minutesLeft = yInfo.end - cur;
+        handled = true;
+      }
     }
   }
 
-  const diff = endMinute - cur;
-  if(diff > 30 || diff <= 0) return;
+  // ---------- 2. 今天的班次 ----------
+  if(!handled){
+    const tShift = store.shiftList[t];
+    if(!tShift || !tShift.shift || tShift.shift === '休') return;
+    const tTpl = store.shiftTemplates.find(x => x.key === tShift.shift);
+    if(!tTpl || !tTpl.time) return;
+    const tInfo = parseShiftTime(tTpl.time);
+    if(!tInfo) return;
+
+    if(!tInfo.crossDay){
+      if(cur < tInfo.start) return;
+      if(cur >= tInfo.end) return;
+      minutesLeft = tInfo.end - cur;
+    }else{
+      if(cur < tInfo.start) return;
+      minutesLeft = (1440 - cur) + tInfo.end;
+    }
+  }
+
+  if(minutesLeft > 30 || minutesLeft <= 0) return;
 
   const fixedList = s.fixedTasks.filter(x => x.enabled);
   const st = s.fixedStatus[t] || {};
@@ -737,7 +757,7 @@ function checkOffWorkReminder(){
 
   if(totalUndone === 0) return;
 
-  showOffWorkReminder(diff, undoneFixed, tempList, overdue);
+  showOffWorkReminder(minutesLeft, undoneFixed, tempList, overdue);
 }
 
 function showOffWorkReminder(minutesLeft, undoneFixed, tempList, overdue){
@@ -1296,7 +1316,6 @@ function dismissReminder(){
 function changeMonth(delta){
   currentMonth.setMonth(currentMonth.getMonth() + delta);
   renderCalendar();
-  if(document.getElementById('page-stat').classList.contains('active')) renderStat();
 }
 
 function renderCalendar(){
@@ -1695,43 +1714,7 @@ function updateScheduleSetting(key, val){
 }
 
 /* =========================================================
-   十三、统计
-   ========================================================= */
-function renderStat(){
-  const store = getStore();
-  const y = currentMonth.getFullYear();
-  const m = currentMonth.getMonth();
-
-  const count = {};
-  store.shiftTemplates.forEach(t => { count[t.key] = 0; });
-
-  Object.keys(store.shiftList).forEach(k => {
-    const parts = k.split('-').map(Number);
-    if(parts[0] === y && (parts[1]-1) === m){
-      const sh = store.shiftList[k].shift;
-      count[sh] = (count[sh] || 0) + 1;
-    }
-  });
-
-  const ctx = document.getElementById('statChart').getContext('2d');
-  if(window.statChart) window.statChart.destroy();
-
-  const labels = store.shiftTemplates.map(t => t.name);
-  const dataArr = store.shiftTemplates.map(t => count[t.key] || 0);
-
-  window.statChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: labels, datasets: [{ data: dataArr, borderRadius: 8 }] },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
-  });
-
-  let statText = '';
-  store.shiftTemplates.forEach(t => { statText += t.name + '：' + (count[t.key] || 0) + '天　'; });
-  document.getElementById('stat-text').innerText = statText.trim() || '本月暂无排班记录';
-}
-
-/* =========================================================
-   十四、图片相册
+   十三、图片相册
    ========================================================= */
 function uploadImages(e){
   const files = e.target.files;
@@ -1861,7 +1844,7 @@ function closeImageModal(){
 })();
 
 /* =========================================================
-   十五、导入导出
+   十四、导入导出
    ========================================================= */
 function exportData(){
   const store = getStore();
@@ -1983,7 +1966,7 @@ function clearAllData(){
 }
 
 /* =========================================================
-   十六、全局点击
+   十五、全局点击
    ========================================================= */
 document.getElementById('temp-modal-mask').addEventListener('click', function(e){
   if(e.target === this) closeTempModal();
@@ -1999,7 +1982,7 @@ document.getElementById('offwork-mask').addEventListener('click', function(e){
 });
 
 /* =========================================================
-   十七、定时任务
+   十六、定时任务
    ========================================================= */
 function tick(){
   const store = getStore();
@@ -2007,6 +1990,10 @@ function tick(){
   if(t !== lastDay){
     lastDay = t;
     ensureSchedule(store);
+    // 清理旧的提醒标记
+    Object.keys(store.offWorkNotify).forEach(k => {
+      if(k !== t) delete store.offWorkNotify[k];
+    });
     saveStore(store);
     const active = document.querySelector('.page.active');
     if(active) goPage(active.id);
@@ -2017,7 +2004,7 @@ function tick(){
 }
 
 /* =========================================================
-   十八、启动
+   十七、启动
    ========================================================= */
 window.onload = function(){
   const t = todayStr();
